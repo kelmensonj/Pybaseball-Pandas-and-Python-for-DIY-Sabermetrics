@@ -1,0 +1,197 @@
+from pybaseball import statcast
+import pandas
+import math
+import csv
+from functools import reduce
+
+
+list_months = ['03','04','05','06','07','08','09','10','11','12']
+list_years = ['15','16','17','18','19']
+
+list_dfs = []
+
+for year in list_years:
+	for month in list_months[0:-1]:
+		start = '20' + year + '-' + month + '-01'
+		end = '20' + year + '-' + list_months[list_months.index(month) + 1] + '-01'
+		data = statcast(start_dt = start, end_dt = end)
+		list_dfs.append(data)
+
+finalDf = pandas.concat(list_dfs)
+finalDf = finalDf.drop_duplicates()
+finalDf.to_csv('pybaseballVidCSV.csv')
+
+################################################################################
+
+batterStatcast = pandas.read_csv("pybaseballVidCSV.csv") 
+batterStatcast = batterStatcast[['batter','game_date','launch_speed','launch_angle', 'description']]
+batterStatcast = batterStatcast.dropna()
+batterStatcast = batterStatcast[batterStatcast['description'].str.contains('hit_into_play')]
+batterStatcast = batterStatcast.drop_duplicates()
+noBunts = batterStatcast[batterStatcast.launch_speed >= 45]
+
+def getYear(my_list, position):
+	return my_list[position]
+	
+noBunts.loc[:, 'game_date'] = noBunts.game_date.str.split('-').apply(getYear, position = 0)
+
+noBunts['percFive'] = ''
+noBunts['percTen'] = ''
+
+#################################################################################
+
+avgSpeed = pandas.DataFrame(noBunts.groupby(['batter', 'game_date']).launch_speed.mean().reset_index()) 
+avgSpeed.rename(columns={'launch_speed' : 'Avg Exit Velo'}, inplace = True)
+
+avgAngle = pandas.DataFrame(noBunts.groupby(['batter', 'game_date']).launch_angle.mean().reset_index())
+avgAngle.rename(columns={'launch_angle' : 'Avg Launch Angle'}, inplace = True)
+
+battedBalls = pandas.DataFrame(noBunts.groupby(['batter', 'game_date']).launch_speed.count().reset_index())
+battedBalls.rename(columns={'launch_speed' : 'Batted Balls'}, inplace = True)
+
+stdSpeed = pandas.DataFrame(noBunts.groupby(['batter', 'game_date']).launch_speed.std().reset_index())
+stdSpeed.rename(columns={'launch_speed' : 'Std Exit Velo'}, inplace = True)
+
+stdAngle = pandas.DataFrame(noBunts.groupby(['batter', 'game_date']).launch_angle.std().reset_index())
+stdAngle.rename(columns={'launch_angle' : 'Std Launch Angle'}, inplace = True)
+
+############################################################################
+
+batterYr_grp = noBunts.groupby(['batter', 'game_date'])
+
+batters = noBunts.batter.unique()
+years = noBunts.game_date.unique()
+
+for player in batters:
+	for year in years:
+		try:
+			x = batterYr_grp.get_group((player, year))
+			q5 = x.launch_speed.quantile(.95)
+			q10 = x.launch_speed.quantile(.90)
+			avgQ5 = x[x.launch_speed >= q5].launch_speed.mean()
+			avgQ10 = x[x.launch_speed >= q10].launch_speed.mean()
+			noBunts['percFive'].loc[(noBunts['batter'] == player) & (noBunts['game_date'] == year)] = avgQ5
+			noBunts['percTen'].loc[(noBunts['batter'] == player) & (noBunts['game_date'] == year)] = avgQ10
+		
+		except:
+			pass
+
+xyz = noBunts[['batter', 'game_date', 'percFive', 'percTen']]
+xyz.rename(columns = {'percFive' : 'Avg Top 5%', 'percTen' : 'Avg Top 10%'})
+
+medSpeed = pandas.DataFrame(noBunts.groupby(['batter', 'game_date']).launch_speed.median().reset_index())
+medSpeed.rename(columns={'launch_speed' : 'Med Exit Velo'}, inplace = True)
+
+medAngle = pandas.DataFrame(noBunts.groupby(['batter', 'game_date']).launch_angle.median().reset_index())
+medAngle.rename(columns={'launch_angle' : 'Med Launch Angle'}, inplace = True)
+
+dfs = [avgSpeed, avgAngle, battedBalls, stdSpeed, stdAngle, medSpeed, medAngle, xyz]
+finalDf = reduce(lambda left,right: pandas.merge(left, right, on=['batter', 'game_date'], how='left'), dfs)
+
+idCSV = pandas.read_csv("mlbamID.csv")
+nameID = idCSV[['MLBID', 'MLBNAME']]
+
+finalDf = reduce(lambda left,right: pandas.merge(left, right, left_on=['batter'], right_on=['MLBID'], how='left'), [finalDf, nameID])
+del finalDf['MLBID']
+finalDf.rename(columns={'batter' : 'PlayerID', 'game_date' : 'Year', 'MLBNAME' : 'Player Name'}, inplace = True)
+finalDf = finalDf.drop_duplicates()
+finalDf.to_csv('pybaseballVidCSV2.csv')
+
+############################################################################
+
+df = pandas.read_csv('pybaseballVidCSV.csv')
+df = df[['home_team','game_year','hit_distance_sc','events','game_date','hc_x','hc_y','launch_speed','launch_angle','batter']] 
+df = df.dropna()
+df = df.loc[df['hit_distance_sc'] > 250]
+df['launch_direction'] = df.apply(lambda x: 0 if x['hc_x'] == 125.42 else (math.degrees(math.atan((x['hc_x']-125.42)/(198.27-x['hc_y'])))), axis=1)
+
+def labelHomer(string):
+	if string == 'home_run':
+		return 1
+	else:
+		return 0
+
+def field(number):
+	for i in range(-45,45,1):
+		if number <= i:
+			return i
+
+df['Field'] = df['launch_direction'].apply(field)
+df['events'] = df['events'].apply(labelHomer)
+
+directions = df['Field'].unique()
+years = df['game_year'].unique()
+venues = df['home_team'].unique()
+
+LISTDFS = []
+
+for year in years:
+	for venue in venues:
+		for direction in directions:
+			dfTemp = df.loc[(df.game_year==year) & (df.home_team==venue) & (df.Field==direction)]
+			LISTDFS.append(dfTemp)
+
+finalDF = pandas.concat(LISTDFS)
+finalDF = finalDF.rename(columns= {'home_team':'Home_Team','game_year':'Year','hit_distance_sc':'Distance','events':'Bop','launch_direction':'Launch_Direction','game_date':'Date'}).reset_index()
+del finalDF['index']
+
+for year in years:
+	partDF = finalDF.loc[finalDF['Year'] == year]
+	partDF.to_csv(str(int(year)) + 'launch_direction1deg_names.csv')
+	
+########################################################################
+
+list_files = ['2015launch_direction1deg.csv','2016launch_direction1deg.csv','2017launch_direction1deg.csv','2018launch_direction1deg.csv','2019launch_direction1deg.csv']
+
+LIST_DF = []
+
+for csv in list_files:
+	df = pandas.read_csv(csv)
+	LIST_DF.append(df)
+	
+year = 2015
+
+for df in LIST_DF:
+	global year
+	rowsData = []
+	
+	grps = df.groupby(['Home_Team','Bop', 'Field'])
+	venues = df.Home_Team.unique()
+	fields = df.Field.unique()
+	for venue in venues:
+		for field in fields:
+			try:
+				homeruns = grps.get_group((venue, 1, field))
+				q5 = homeruns.Distance.quantile(.05)
+				minimum = homeruns.Distance.min()
+			except:
+				q5 = 'na'
+				minimum = 'na'
+			try:
+				not_homeruns = grps.get_group((venue, 0, field))
+				q95 = not_homeruns.Distance.quantile(.95)
+				maximum = not_homeruns.Distance.max()
+			except:
+				q95 = 'na'
+				maximum = 'na'
+			rowData = [venue,field,minimum,q5,maximum,q95]
+			rowsData.append(rowData)
+
+	deg_DF = pandas.DataFrame(rowsData,columns = ['Home_Team','Deg_Increment','Min_HR','5%_HR','Max_FB','95%_FB'])
+	deg_DF.to_csv(str(year)+'parkFactors.csv')
+	year+=1
+	
+dfMapper = pandas.read_csv('pybaseballVidCSV2.csv')
+
+years = ['2015','2016','2017','2018','2019']
+
+for year in years:
+	df = pandas.read_csv(year + 'launch_direction1deg_names.csv')
+	finalDf = reduce(lambda left,right: pandas.merge(left, right, left_on=['batter'], right_on=['PlayerID'], how='left'), [df,dfMapper])
+	finalDf = finalDf[['PlayerID', 'Player Name', 'Home_Team','Year_x','Distance','Bop','Date','hc_x','hc_y','launch_speed','launch_angle','Launch_Direction','Field']]
+	finalDf = finalDf.drop_duplicates()
+	finalDf.to_csv(str(year) + 'parkfactorData.csv')
+
+
+
+
