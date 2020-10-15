@@ -3,10 +3,18 @@ import pandas
 import math
 import csv
 from functools import reduce
+#######
+you can download pybaseball on github. It scrapes websites like baseballreference.com and returns statcast data in very neat csv files. Great work 
+that is still being updated. All the other imports are pretty standard and if you don't have them downloaded google will help you
+#######
 
-
-list_months = ['03','04','05','06','07','08','09','10','11','12']
+list_months = ['03','04','05','06','07','08','09','10','11','12']  
 list_years = ['15','16','17','18','19']
+#######
+list_months and list_years tell what data to download. It's broken up into chunks because if you tell pybaseball to download everything at once,
+there is almost always an error message. If you want just May 2018, delete from list_months everything besides '05' and delete from list_years
+everything besides '18'
+#######
 
 list_dfs = []
 
@@ -16,10 +24,19 @@ for year in list_years:
 		end = '20' + year + '-' + list_months[list_months.index(month) + 1] + '-01'
 		data = statcast(start_dt = start, end_dt = end)
 		list_dfs.append(data)
+		
+#######
+Lines 21-26 iterate over list_years and list_months and call the function statcast from pybaseball in order to generate a 
+list of pandas dataframes stored within list_dfs
+#######
 
 finalDf = pandas.concat(list_dfs)
 finalDf = finalDf.drop_duplicates()
-finalDf.to_csv('pybaseballVidCSV.csv')
+finalDf.to_csv('pybaseballVidCSV.csv') #############This line here is the last important line if you just want all the data in a csv
+
+#######
+Lines 33-35 concatenate and store all the downloaded statcast data into the csv file pybaseballVidCSV.csv
+#######
 
 ################################################################################
 
@@ -30,13 +47,31 @@ batterStatcast = batterStatcast[batterStatcast['description'].str.contains('hit_
 batterStatcast = batterStatcast.drop_duplicates()
 noBunts = batterStatcast[batterStatcast.launch_speed >= 45]
 
+#######
+Lines 43-45 store in the dataframe 'noBunts' statcast data filtered out based on column name, whether or not the substring 'hit_into_play' is in the 
+'description' column, and whether or not the launch_speed column entry is greater than or equal to 45. Again, google can help here, you can narrow down 
+your dataframe to whatever you want using pandas
+#######
+
 def getYear(my_list, position):
 	return my_list[position]
 	
+######
+The getYear function will return an entry in a list.
+######
+	
 noBunts.loc[:, 'game_date'] = noBunts.game_date.str.split('-').apply(getYear, position = 0)
+
+######
+Line 63 updates the noBunts dataframe column 'game_date' by overwriting the full date by the year alone
+######
 
 noBunts['percFive'] = ''
 noBunts['percTen'] = ''
+
+######
+Line 69-70 just create empty columns in the dataframe
+######
 
 #################################################################################
 
@@ -57,6 +92,10 @@ stdAngle.rename(columns={'launch_angle' : 'Std Launch Angle'}, inplace = True)
 
 ############################################################################
 
+#######
+Lines 78-91 all create groupby objects based on various criteria. 
+#######
+
 batterYr_grp = noBunts.groupby(['batter', 'game_date'])
 
 batters = noBunts.batter.unique()
@@ -75,6 +114,11 @@ for player in batters:
 		
 		except:
 			pass
+			
+#####
+Lines 99-116 are all about the pandas function 'get_group'. This is used to look at launch speed events for individual players for individual years,
+and is then used to fill out the columns created in lines 69-70. 
+#####
 
 xyz = noBunts[['batter', 'game_date', 'percFive', 'percTen']]
 xyz.rename(columns = {'percFive' : 'Avg Top 5%', 'percTen' : 'Avg Top 10%'})
@@ -88,8 +132,16 @@ medAngle.rename(columns={'launch_angle' : 'Med Launch Angle'}, inplace = True)
 dfs = [avgSpeed, avgAngle, battedBalls, stdSpeed, stdAngle, medSpeed, medAngle, xyz]
 finalDf = reduce(lambda left,right: pandas.merge(left, right, on=['batter', 'game_date'], how='left'), dfs)
 
-idCSV = pandas.read_csv("mlbamID.csv")
+idCSV = pandas.read_csv("mlbamID.csv")        missing file####IMPORTANT#####missing file
+#####
+idCSV is a csv file I downloaded online. I don't know exactly where I got it, but it's a file containing MLB player names as well
+as their unique MLBAM id. MLBAM id's are used without player names in order to differentiate between unique MLB players. idCSV will be used to simply
+add player names to the noBunts dataframe, but is unneccessary in the data analysis process unless you need the player name. 
+#####
 nameID = idCSV[['MLBID', 'MLBNAME']]
+
+
+					     ^^^^^^###########IMPORTANT########^^^^^
 
 finalDf = reduce(lambda left,right: pandas.merge(left, right, left_on=['batter'], right_on=['MLBID'], how='left'), [finalDf, nameID])
 del finalDf['MLBID']
