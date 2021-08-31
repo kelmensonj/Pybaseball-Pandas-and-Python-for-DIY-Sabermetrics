@@ -7,7 +7,7 @@ If you want to look at that file directly I'm sure we could figure something out
 
 And here is that data transformed in order to create a few metrics invented by my brother. We used this data to create better park factors and better indicators of raw power than you might typically find on Baseball Savant:
 
-![alt-text](https://github.com/kelmensonj/Pybaseball-Pandas-and-Python-for-DIY-Sabermetrics/blob/main/tranformed.gif)
+![alt-text](https://github.com/kelmensonj/Pybaseball-Pandas-and-Python-for-DIY-Sabermetrics/blob/main/transformed.gif)
 
 And finally, here is an extended video I made about all of this where the metric gets fully explained towards the end: https://www.youtube.com/watch?v=bdmdqhmzDyQ&t=85s
 
