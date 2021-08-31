@@ -9,6 +9,8 @@ And here is that data transformed in order to create a few metrics invented by m
 
 ![alt-text](https://github.com/kelmensonj/Pybaseball-Pandas-and-Python-for-DIY-Sabermetrics/blob/main/transformed.gif)
 
+![alt-text](link)
+
 And finally, here is an extended video I made about all of this where the metric gets fully explained towards the end: https://www.youtube.com/watch?v=bdmdqhmzDyQ&t=85s
 
 
