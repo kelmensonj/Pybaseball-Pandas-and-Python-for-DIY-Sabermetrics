@@ -6,6 +6,9 @@ There are a couple dependencies for this project. On Ubuntu 21.04, I did:
 pip3 install pybaseball
 pip3 install pandas
 ```
+
+You'll also need either the file in the repo called 'MLBid.csv' or a file in a similar format.
+
 Here is a huge 2 gigabyte file I made by using pybaseball to collect the last few years of statcast data:
 
 ![alt-text](https://github.com/kelmensonj/Pybaseball-Pandas-and-Python-for-DIY-Sabermetrics/blob/master/big_baseball.gif)
