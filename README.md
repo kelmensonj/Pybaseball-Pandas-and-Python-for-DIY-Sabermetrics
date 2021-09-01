@@ -7,7 +7,7 @@ pip3 install pybaseball
 pip3 install pandas
 ```
 
-You'll also need either the file in the repo called 'MLBid.csv' or a file in a similar format.
+You'll also need either the file in the repo called 'mlbamID.csv' or a file in a similar format.
 
 Here is a huge 2 gigabyte file I made by using pybaseball to collect the last few years of statcast data:
 
